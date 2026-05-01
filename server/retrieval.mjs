@@ -1,4 +1,5 @@
 import { withClient } from "../scripts/lib/db.mjs";
+import { createS3Client, getObjectText } from "../scripts/lib/object-storage.mjs";
 
 export async function searchPolicies({ query, limit = 8, documentId = null }) {
   return withClient(async (client) => {
@@ -93,6 +94,39 @@ export async function fetchDocument({ documentId }) {
 
     return rows[0] ?? null;
   });
+}
+
+export async function fetchDocumentMarkdown({ documentId, maxChars = 20000 }) {
+  const document = await fetchDocument({ documentId });
+
+  if (!document) {
+    return null;
+  }
+
+  const uri = document.docling_payload?.artifactUris?.docling_markdown_uri;
+
+  if (!uri) {
+    return {
+      documentId,
+      title: document.title,
+      sourcePath: document.source_path,
+      markdown: null,
+      error: "No Docling markdown URI is available for this document."
+    };
+  }
+
+  const markdown = await getObjectText(createS3Client(), uri);
+  const truncated = markdown.length > maxChars;
+
+  return {
+    documentId,
+    title: document.title,
+    sourcePath: document.source_path,
+    markdownUri: uri,
+    markdown: markdown.slice(0, maxChars),
+    truncated,
+    totalChars: markdown.length
+  };
 }
 
 export async function corpusStats() {

@@ -37,6 +37,10 @@ await withClient(async (client) => {
           page_count = null,
           docling_job_id = null,
           docling_payload = null,
+          understanding_status = 'not_started',
+          understanding_engine = null,
+          understanding_payload = null,
+          understanding_completed_at = null,
           updated_at = now()
     `);
 

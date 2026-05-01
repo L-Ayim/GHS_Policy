@@ -1,6 +1,8 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
+import { optionalEnv } from "../scripts/lib/config.mjs";
 import { corpusStats, fetchChunk, fetchDocument, fetchDocumentMarkdown, searchPolicies } from "./retrieval.mjs";
+import { fetchDocumentSource, listUnunderstoodDocuments, saveDocumentUnderstanding } from "./understanding.mjs";
 
 function textResult(value) {
   return {
@@ -17,6 +19,14 @@ function textResult(value) {
 function readOnlyAnnotations() {
   return {
     readOnlyHint: true,
+    destructiveHint: false,
+    openWorldHint: false
+  };
+}
+
+function internalWriteAnnotations() {
+  return {
+    readOnlyHint: false,
     destructiveHint: false,
     openWorldHint: false
   };
@@ -127,6 +137,83 @@ export function createGhsMcpServer() {
     },
     async ({ query, limit, documentId }) => textResult(await searchPolicies({ query, limit, documentId }))
   );
+
+  if (optionalEnv("GHS_STEWARD_TOOLS", "true") === "true") {
+    server.registerTool(
+      "list_ununderstood_documents",
+      {
+        title: "List Documents Needing Understanding",
+        description: "Use this during corpus setup to find GHS documents that have source files in Tigris but do not yet have GPT-generated understanding, chunks, and navigation metadata.",
+        inputSchema: {
+          limit: z.number().int().min(1).max(50).default(10),
+          includeReview: z.boolean().default(true)
+        },
+        annotations: readOnlyAnnotations()
+      },
+      async ({ limit, includeReview }) => textResult(await listUnunderstoodDocuments({ limit, includeReview }))
+    );
+
+    server.registerTool(
+      "fetch_document_source",
+      {
+        title: "Fetch Document Source",
+        description: "Use this during corpus setup to get a temporary signed Tigris URL for one source PDF or DOCX before creating understanding/chunks.",
+        inputSchema: {
+          documentId: z.string().uuid(),
+          expiresIn: z.number().int().min(60).max(3600).default(900)
+        },
+        annotations: readOnlyAnnotations()
+      },
+      async ({ documentId, expiresIn }) => textResult(await fetchDocumentSource({ documentId, expiresIn }))
+    );
+
+    server.registerTool(
+      "save_document_understanding",
+      {
+        title: "Save Document Understanding",
+        description: "Use this only during corpus setup after reading a source document. Writes GPT-created metadata, outline, navigational chunks, citation spans, and quality notes into the GHS policy DB.",
+        inputSchema: {
+          documentId: z.string().uuid(),
+          summary: z.string().min(20),
+          policyArea: z.string().nullable().default(null),
+          issuingBody: z.string().nullable().default(null),
+          effectiveYear: z.number().int().min(1900).max(2100).nullable().default(null),
+          audience: z.array(z.string()).default([]),
+          tags: z.array(z.string()).default([]),
+          outline: z.array(z.object({
+            sectionPath: z.string().optional(),
+            heading: z.string().optional(),
+            summary: z.string().optional(),
+            pageStart: z.number().int().optional(),
+            pageEnd: z.number().int().optional()
+          })).default([]),
+          navigation: z.record(z.string(), z.unknown()).default({}),
+          chunks: z.array(z.object({
+            text: z.string().min(1),
+            headingPath: z.string().nullable().optional(),
+            sectionPath: z.string().nullable().optional(),
+            contentKind: z.string().default("body"),
+            pageStart: z.number().int().nullable().optional(),
+            pageEnd: z.number().int().nullable().optional(),
+            paragraphStart: z.number().int().nullable().optional(),
+            paragraphEnd: z.number().int().nullable().optional(),
+            tokenCount: z.number().int().nullable().optional(),
+            concepts: z.array(z.string()).optional(),
+            questionsAnswered: z.array(z.string()).optional(),
+            locator: z.record(z.string(), z.unknown()).optional()
+          })).min(1).max(300),
+          quality: z.object({
+            needsReview: z.boolean().default(false),
+            notes: z.string().nullable().default(null),
+            confidence: z.number().min(0).max(1).optional(),
+            coverage: z.string().optional()
+          }).default({})
+        },
+        annotations: internalWriteAnnotations()
+      },
+      async (input) => textResult(await saveDocumentUnderstanding(input))
+    );
+  }
 
   return server;
 }

@@ -1,0 +1,24 @@
+{
+  "name": "ghana-health-policy-assistant",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "db:migrate": "node scripts/db-migrate.mjs",
+    "docs:inventory": "node scripts/docs-inventory.mjs",
+    "docs:upload": "node scripts/upload-docs-to-tigris.mjs",
+    "ingest:queue": "node scripts/ingest-queue.mjs",
+    "runpod:endpoints": "node scripts/runpod-list-endpoints.mjs",
+    "tigris:smoke": "node scripts/tigris-smoke-test.mjs",
+    "health": "node scripts/healthcheck.mjs"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.888.0",
+    "@aws-sdk/s3-request-presigner": "^3.888.0",
+    "@modelcontextprotocol/sdk": "^1.27.1",
+    "dotenv": "^16.6.1",
+    "pg": "^8.20.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {}
+}

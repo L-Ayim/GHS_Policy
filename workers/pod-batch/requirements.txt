@@ -1,0 +1,9 @@
+awscli
+boto3
+docling[easyocr,rapidocr]
+opencv-python-headless
+pillow
+psycopg[binary]
+python-dotenv
+requests
+tqdm

@@ -98,3 +98,20 @@ export async function getObjectText(client, uri) {
 
   return response.Body.transformToString("utf-8");
 }
+
+export async function getObjectBuffer(client, uri) {
+  const parsed = parseS3Uri(uri);
+
+  if (!parsed) {
+    throw new Error(`Expected s3:// URI, got ${uri}`);
+  }
+
+  const response = await client.send(
+    new GetObjectCommand({
+      Bucket: parsed.bucket,
+      Key: parsed.key
+    })
+  );
+
+  return Buffer.from(await response.Body.transformToByteArray());
+}

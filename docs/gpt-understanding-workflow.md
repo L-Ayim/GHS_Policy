@@ -8,6 +8,7 @@ These tools are visible when `GHS_STEWARD_TOOLS=true`.
 
 - `list_ununderstood_documents`: find documents with Tigris source files but no saved understanding.
 - `fetch_document_source`: get a temporary signed Tigris URL for one PDF/DOCX source.
+- `fetch_document_text`: extract readable text from a Tigris PDF/DOCX source for GPT understanding.
 - `save_document_understanding`: write GPT-created document metadata, outline, navigation, chunks, citation spans, and quality notes.
 
 Normal user-answer tools remain:
@@ -21,9 +22,10 @@ Normal user-answer tools remain:
 
 1. Call `list_ununderstood_documents`.
 2. Pick one document, usually smaller files first.
-3. Call `fetch_document_source`.
-4. Read the source document.
-5. Create:
+3. Call `fetch_document_text`.
+4. If text extraction is weak or unsupported, call `fetch_document_source` for a signed source link and mark the document for review.
+5. Read the extracted text/source document.
+6. Create:
    - concise summary
    - policy area
    - issuing body
@@ -33,8 +35,8 @@ Normal user-answer tools remain:
    - navigational outline
    - retrieval chunks
    - quality notes
-6. Call `save_document_understanding`.
-7. Repeat until `list_ununderstood_documents` returns no rows.
+7. Call `save_document_understanding`.
+8. Repeat until `list_ununderstood_documents` returns no rows.
 
 ## Chunking Guidance
 

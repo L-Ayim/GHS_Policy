@@ -1,5 +1,42 @@
 import { withClient } from "../scripts/lib/db.mjs";
-import { createS3Client, presignReadUrl } from "../scripts/lib/object-storage.mjs";
+import { createS3Client, getObjectBuffer, presignReadUrl } from "../scripts/lib/object-storage.mjs";
+
+const MAX_EXTRACT_BYTES = 80 * 1024 * 1024;
+
+async function extractPdfText(buffer) {
+  const { PDFParse } = await import("pdf-parse");
+  const parser = new PDFParse({ data: buffer });
+
+  try {
+    const result = await parser.getText();
+    return {
+      text: result.text ?? "",
+      pageCount: result.total ?? result.pages?.length ?? null,
+      method: "pdf-parse"
+    };
+  } finally {
+    await parser.destroy();
+  }
+}
+
+async function extractDocxText(buffer) {
+  const mammoth = await import("mammoth");
+  const result = await mammoth.extractRawText({ buffer });
+
+  return {
+    text: result.value ?? "",
+    pageCount: null,
+    method: "mammoth"
+  };
+}
+
+function cleanExtractedText(text) {
+  return text
+    .replace(/\r\n/g, "\n")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{4,}/g, "\n\n\n")
+    .trim();
+}
 
 export async function listUnunderstoodDocuments({ limit = 10, includeReview = true } = {}) {
   return withClient(async (client) => {
@@ -92,6 +129,74 @@ export async function fetchDocumentSource({ documentId, expiresIn = 900 }) {
       storageUri: row.storage_uri,
       signedUrl: await presignReadUrl(createS3Client(), row.storage_uri, expiresIn),
       signedUrlExpiresInSeconds: expiresIn,
+      understandingStatus: row.understanding_status
+    };
+  });
+}
+
+export async function fetchDocumentText({ documentId, maxChars = 50000 }) {
+  return withClient(async (client) => {
+    const { rows } = await client.query(
+      `
+      select d.id as document_id,
+             d.title,
+             d.source_path,
+             d.mime_type,
+             r.id as revision_id,
+             r.storage_uri,
+             r.file_size_bytes,
+             r.understanding_status
+      from documents d
+      join document_revisions r on r.id = d.latest_revision_id
+      where d.id = $1
+      `,
+      [documentId]
+    );
+
+    const row = rows[0];
+    if (!row) return null;
+
+    if (Number(row.file_size_bytes) > MAX_EXTRACT_BYTES) {
+      return {
+        documentId,
+        title: row.title,
+        sourcePath: row.source_path,
+        mimeType: row.mime_type,
+        fileSizeBytes: Number(row.file_size_bytes),
+        text: null,
+        error: "Document is too large for lightweight MCP text extraction. Use Docling/RunPod or a smaller page-based extraction path."
+      };
+    }
+
+    const buffer = await getObjectBuffer(createS3Client(), row.storage_uri);
+    let extracted;
+
+    if (row.mime_type === "application/pdf" || row.source_path.toLowerCase().endsWith(".pdf")) {
+      extracted = await extractPdfText(buffer);
+    } else if (
+      row.mime_type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+      || row.source_path.toLowerCase().endsWith(".docx")
+    ) {
+      extracted = await extractDocxText(buffer);
+    } else {
+      throw new Error(`Unsupported source type for text extraction: ${row.mime_type}`);
+    }
+
+    const text = cleanExtractedText(extracted.text);
+    const truncated = text.length > maxChars;
+
+    return {
+      documentId,
+      revisionId: row.revision_id,
+      title: row.title,
+      sourcePath: row.source_path,
+      mimeType: row.mime_type,
+      fileSizeBytes: Number(row.file_size_bytes),
+      method: extracted.method,
+      pageCount: extracted.pageCount,
+      text: text.slice(0, maxChars),
+      totalChars: text.length,
+      truncated,
       understandingStatus: row.understanding_status
     };
   });

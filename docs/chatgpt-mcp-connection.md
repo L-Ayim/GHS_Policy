@@ -23,8 +23,12 @@ GET /health
 - `fetch_document_markdown`: fetches a larger slice of a document's extracted Docling markdown from Tigris.
 - `corpus_stats`: checks extraction/chunking/index status.
 - `search_policies`: compatibility alias for earlier local tests.
+- `list_ununderstood_documents`: lists corpus documents that still need GPT-created understanding.
+- `fetch_document_text`: extracts readable text from a Tigris PDF/DOCX source for GPT understanding.
+- `fetch_document_source`: returns a temporary signed source URL when text extraction is weak or unavailable.
+- `save_document_understanding`: saves GPT-created metadata, outline, chunks, and quality notes.
 
-All tools are read-only.
+The normal answer tools are read-only. The corpus steward save tool writes internal understanding/chunk state during setup.
 
 ## Local Or Pod Test
 

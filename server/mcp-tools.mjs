@@ -2,7 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { optionalEnv } from "../scripts/lib/config.mjs";
 import { corpusStats, fetchChunk, fetchDocument, fetchDocumentMarkdown, searchPolicies } from "./retrieval.mjs";
-import { fetchDocumentSource, listUnunderstoodDocuments, saveDocumentUnderstanding } from "./understanding.mjs";
+import { fetchDocumentSource, fetchDocumentText, listUnunderstoodDocuments, saveDocumentUnderstanding } from "./understanding.mjs";
 
 function textResult(value) {
   const structuredContent = Array.isArray(value)
@@ -171,6 +171,20 @@ export function createGhsMcpServer() {
         annotations: readOnlyAnnotations()
       },
       async ({ documentId, expiresIn }) => textResult(await fetchDocumentSource({ documentId, expiresIn }))
+    );
+
+    server.registerTool(
+      "fetch_document_text",
+      {
+        title: "Fetch Document Text",
+        description: "Use this during corpus setup to extract readable text from a Tigris source PDF or DOCX so GPT can create understanding, navigation, and chunks.",
+        inputSchema: {
+          documentId: z.string().uuid(),
+          maxChars: z.number().int().min(1000).max(100000).default(50000)
+        },
+        annotations: readOnlyAnnotations()
+      },
+      async ({ documentId, maxChars }) => textResult(await fetchDocumentText({ documentId, maxChars }))
     );
 
     server.registerTool(

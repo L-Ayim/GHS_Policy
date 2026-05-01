@@ -8,6 +8,9 @@
     "docs:inventory": "node scripts/docs-inventory.mjs",
     "docs:upload": "node scripts/upload-docs-to-tigris.mjs",
     "ingest:queue": "node scripts/ingest-queue.mjs",
+    "chunk": "node scripts/chunk-extractions.mjs",
+    "search": "node scripts/search-policies.mjs",
+    "mcp:stdio": "node server/mcp-stdio.mjs",
     "runpod:endpoints": "node scripts/runpod-list-endpoints.mjs",
     "tigris:smoke": "node scripts/tigris-smoke-test.mjs",
     "health": "node scripts/healthcheck.mjs"

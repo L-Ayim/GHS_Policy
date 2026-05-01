@@ -7,6 +7,7 @@ import { createGhsMcpServer } from "./mcp-tools.mjs";
 const port = Number.parseInt(optionalEnv("PORT", "3000"), 10);
 const host = optionalEnv("HOST", "0.0.0.0");
 const bearerToken = optionalEnv("GHS_MCP_BEARER_TOKEN");
+const urlToken = optionalEnv("GHS_MCP_URL_TOKEN");
 const allowedHosts = optionalEnv("MCP_ALLOWED_HOSTS");
 
 const app = createMcpExpressApp({
@@ -15,13 +16,17 @@ const app = createMcpExpressApp({
 });
 
 function requireAuth(req, res, next) {
-  if (!bearerToken) {
+  if (!bearerToken && !urlToken) {
     next();
     return;
   }
 
   const header = req.headers.authorization ?? "";
-  if (header !== `Bearer ${bearerToken}`) {
+  const queryToken = req.query?.token;
+  const bearerOk = bearerToken && header === `Bearer ${bearerToken}`;
+  const queryOk = urlToken && queryToken === urlToken;
+
+  if (!bearerOk && !queryOk) {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }

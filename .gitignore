@@ -8,3 +8,4 @@ dist/
 *.pdf
 *.doc
 *.docx
+.fly-mcp-token.tmp

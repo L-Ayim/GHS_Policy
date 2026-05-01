@@ -5,6 +5,12 @@ import { corpusStats, fetchChunk, fetchDocument, fetchDocumentMarkdown, searchPo
 import { fetchDocumentSource, listUnunderstoodDocuments, saveDocumentUnderstanding } from "./understanding.mjs";
 
 function textResult(value) {
+  const structuredContent = Array.isArray(value)
+    ? { items: value }
+    : typeof value === "object" && value !== null
+      ? value
+      : undefined;
+
   return {
     content: [
       {
@@ -12,7 +18,7 @@ function textResult(value) {
         text: typeof value === "string" ? value : JSON.stringify(value, null, 2)
       }
     ],
-    structuredContent: typeof value === "object" && value !== null ? value : undefined
+    structuredContent
   };
 }
 

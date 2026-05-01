@@ -8,6 +8,7 @@
     "docs:inventory": "node scripts/docs-inventory.mjs",
     "docs:upload": "node scripts/upload-docs-to-tigris.mjs",
     "ingest:queue": "node scripts/ingest-queue.mjs",
+    "reset:processing": "node scripts/reset-processing-state.mjs",
     "chunk": "node scripts/chunk-extractions.mjs",
     "search": "node scripts/search-policies.mjs",
     "mcp:stdio": "node server/mcp-stdio.mjs",

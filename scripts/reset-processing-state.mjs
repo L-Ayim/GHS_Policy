@@ -2,6 +2,7 @@ import process from "node:process";
 import { withClient } from "./lib/db.mjs";
 
 const confirm = process.argv.includes("--yes");
+const requeue = !process.argv.includes("--no-requeue");
 
 if (!confirm) {
   console.error("Refusing to reset without --yes.");
@@ -51,29 +52,35 @@ await withClient(async (client) => {
           updated_at = now()
     `);
 
-    const inserted = await client.query(`
-      insert into ingestion_jobs (
-        document_revision_id,
-        job_type,
-        status,
-        priority,
-        input
-      )
-      select id,
-             'docling_extract',
-             'queued',
-             100,
-             jsonb_build_object('sourcePath', source_path, 'storageUri', storage_uri)
-      from document_revisions
-      where storage_uri is not null
-      returning id
-    `);
+    let queuedJobs = 0;
+
+    if (requeue) {
+      const inserted = await client.query(`
+        insert into ingestion_jobs (
+          document_revision_id,
+          job_type,
+          status,
+          priority,
+          input
+        )
+        select id,
+               'docling_extract',
+               'queued',
+               100,
+               jsonb_build_object('sourcePath', source_path, 'storageUri', storage_uri)
+        from document_revisions
+        where storage_uri is not null
+        returning id
+      `);
+      queuedJobs = inserted.rowCount;
+    }
 
     await client.query("commit");
 
     console.log(JSON.stringify({
       event: "processing_state_reset",
-      queuedJobs: inserted.rowCount
+      requeue,
+      queuedJobs
     }));
   } catch (error) {
     await client.query("rollback");
